@@ -1,0 +1,9 @@
+[program:scans]
+process_name=%(program_name)s_%(process_num)02d
+command=php /home/vagrant/Monitor-Fox/artisan queue:work sqs --sleep=3 --tries=3 --daemon
+autostart=true
+autorestart=true
+user=vagrant
+numprocs=8
+redirect_stderr=true
+stdout_logfile=/var/log/supervisor/monitorfox.log

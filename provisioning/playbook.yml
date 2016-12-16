@@ -1,0 +1,158 @@
+---
+- hosts: all
+  sudo: yes
+  vars_files:
+    - vars/main.yml
+  gather_facts: no
+  pre_tasks:
+    - name: 'install python2'
+      raw: sudo apt-get -y install python-simplejson
+  tasks:
+
+  - name: install git
+    apt: name=git state=present
+
+  - name: Install php repo
+    apt_repository: repo='ppa:ondrej/php' state=present update_cache=yes
+
+  - name: Install php7.0
+    apt: name=php7.0 state=present
+
+  - name: Install php packages
+    apt: name={{ item }} state=present
+    with_items:
+      - php7.0-mbstring
+      - php7.0-dom
+      - php7.0-curl
+      - php7.0-zip
+      - php7.0-fpm
+      - php7.0-mysql
+
+  - name: Ensure apache2 is removed
+    apt: name=apache2 state=absent
+
+  - name: Install nginx
+    apt: name=nginx state=present
+
+  - name: Install MySQL
+    apt: name="{{ item }}" update_cache=yes cache_valid_time=3600 state=present
+    sudo: yes
+    with_items:
+      - python-mysqldb
+      - mysql-server
+
+  - name: Start the MySQL service
+    sudo: yes
+    service: 
+      name: mysql 
+      state: started
+      enabled: true
+
+  - name: Create database user
+    mysql_user: name={{ mysql_username }} password={{ mysql_password }} priv=*.*:ALL state=present
+
+  - name: Create database
+    mysql_db: name={{ mysql_database }} state=present login_user={{ mysql_username }} login_password={{ mysql_password }}
+
+  - name: Disable Default Site
+    file: dest=/etc/nginx/sites-enabled/default state=absent
+
+  - name: Add Site Config
+    template: src=templates/vhost.com.j2 dest="/etc/nginx/sites-available/{{ site_name }}.conf" owner=root group=root
+
+  - name: Enable Site Config
+    file: src="/etc/nginx/sites-available/{{ site_name }}.conf" dest="/etc/nginx/sites-enabled/{{ site_name }}.conf" state=link
+
+  - name: Web Root Permissions
+    file: dest="/home/vagrant/{{ app_name }}/public" mode=775 state=directory owner=www-data group=www-data recurse=yes
+    notify:
+      - Reload Nginx
+
+  - name: Storage Permissions
+    file: dest="/home/vagrant/{{ app_name }}/storage" mode=777 recurse=yes state=directory
+  
+  - name: download composer
+    get_url:
+      url: https://getcomposer.org/installer
+      dest: /tmp/installer
+    tags: composer
+
+  - name: install composer
+    shell: cat /tmp/installer | php -- --install-dir=/usr/local/bin
+    args:
+      creates: /usr/local/bin/composer
+    tags: composer
+
+  - name: rename composer.phar to composer
+    shell: mv /usr/local/bin/composer.phar /usr/local/bin/composer
+    args:
+      creates: /usr/local/bin/composer
+    tags: composer
+
+  - name: make composer executable
+    file: 
+      path: /usr/local/bin/composer
+      mode: a+x
+      state: file
+    tags: composer
+
+  # - name: install redis ppa
+    # apt_repository: repo='ppa:chris-lea/redis-server' state=present update_cache=yes
+
+  # - name: install redis
+    # apt: name=redis-server state=present
+
+  # - name: install beanstalkd
+    # apt: name=beanstalkd state=present
+
+  # - name: install npm ppa
+    # shell: curl -sL https://deb.nodesource.com/setup_6.x | sudo -E bash -
+    # become: yes
+
+  # - name: install nodejs (includes npm)
+    # apt: name=nodejs state=present update_cache=yes
+
+  # - name: install yarn
+    # shell: npm install --global yarn
+    # become: yes
+
+  # - name: install gulp
+    # shell: npm i --global gulp
+    # become: yes
+
+  # - name: install webpack
+    # shell: npm i --global webpack
+    # become: yes
+
+  # - name: install pm2
+    # shell: npm i --global pm2
+    # become: yes
+
+  # - name: install supervisor
+    # apt: name=supervisor state=present
+
+  # - name: Composer install the application
+    # command: composer install chdir="/home/vagrant/{{ app_name }}"
+    # become: yes
+    # become_user: vagrant
+
+  # - name: npm install the application
+    # command: npm install
+
+  # - name: Run migrations
+    # command: php artisan migrate chdir="/home/vagrant/{{ app_name }}"
+
+  # - name: Generate application key
+    # command: php artisan key:generate chdir="/home/vagrant/{{ app_name }}"
+
+  handlers:
+  - name: Start Nginx
+    service: name=nginx state=started
+
+  - name: Reload Nginx
+    service: name=nginx state=reloaded
+
+  - name: restart supervisor
+    service: name=supervisor state=restarted
+
+

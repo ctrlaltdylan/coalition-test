@@ -1,0 +1,6 @@
+app_name: coalition
+site_name: coalition
+domain: coalition.dev
+mysql_password: coalition
+mysql_username: coalition
+mysql_database: coalition
