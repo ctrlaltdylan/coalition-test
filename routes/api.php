@@ -13,6 +13,7 @@ use Illuminate\Http\Request;
 |
 */
 
-Route::get('/user', function (Request $request) {
-    return $request->user();
-})->middleware('auth:api');
+Route::group(['namespace' => 'Api'], function() {
+	Route::post('/product', 'ProductController@store');
+	Route::get('/product', 'ProductController@listing');
+});
